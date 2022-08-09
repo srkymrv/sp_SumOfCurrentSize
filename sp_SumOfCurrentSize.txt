@@ -1,0 +1,72 @@
+CREATE PROCEDURE [dbo].[sp_SumCurrentSize]
+	
+	@Show_Me bit = 0,
+	@GB_OR_MB VARCHAR(3) = 'MB'
+	
+AS
+BEGIN
+	SET NOCOUNT ON;
+	IF (@Show_Me = 1)
+		BEGIN
+			CREATE TABLE #FileSize
+			(dbName nvarchar(64),
+			FileNames nvarchar(max),
+			Physical_Name nvarchar(max),
+			Size DECIMAL (18,4),
+			Type_Descs nvarchar(5),
+			Collected_Date datetime)
+
+
+			INSERT INTO #FileSize(dbName, FileNames, Physical_Name, Size, Type_Descs, Collected_Date)
+			exec sp_msforeachdb
+			'use [?];
+			select 
+				DB_NAME() AS DbName,
+				name as FileName,
+				physical_name,
+				size,
+				type_desc,
+				GETDATE() AS collected_date
+			from sys.database_files;';
+
+
+			select dbName, FileNames, Physical_Name, cast((Size*8/1024) as int) as sizeMB, Type_Descs from #FileSize
+			where dbName not in ('master','model','msdb','tempdb');
+
+			IF (@GB_OR_MB = 'GB')
+				BEGIN
+					select 
+						cast(sum(size*8/1024/1024) as int) as CurrentSizeGB,
+						Type_Descs
+					from #FileSize
+					where dbName not in ('master','model','msdb','tempdb')
+					group by Type_Descs
+				END
+			ELSE IF (@GB_OR_MB = 'TB')
+				BEGIN
+					select 
+						cast(sum(size*8/1024/1024/1024) as decimal(18,4)) as CurrentSizeTB,
+						Type_Descs,
+						Collected_Date
+					from #FileSize
+					where dbName not in ('master','model','msdb','tempdb')
+					group by Type_Descs, Collected_Date
+				END
+			ELSE
+				BEGIN
+					select 
+						cast(sum(size*8/1024) as int) as CurrentSizeMB,
+						Type_Descs
+					from #FileSize
+					where dbName not in ('master','model','msdb','tempdb')
+					group by Type_Descs
+				END
+		END
+
+	ELSE 
+		BEGIN
+		PRINT ''
+		END	
+	drop table  #FileSize
+END
+GO
