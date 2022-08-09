@@ -37,7 +37,8 @@ BEGIN
 				BEGIN
 					select 
 						cast(sum(size*8/1024/1024) as decimal(18,4)) as CurrentSizeGB,
-						Type_Descs
+						Type_Descs,
+						Collected_Date
 					from #FileSize
 					where dbName not in ('master','model','msdb','tempdb')
 					group by Type_Descs
