@@ -1,13 +1,13 @@
-CREATE PROCEDURE [dbo].[sp_SumCurrentSize]
-	
-	@Show_Me bit = 0,
+DECLARE
+	@Show_Me bit = 1,
 	@measurement VARCHAR(3) = 'MB'
 	
-AS
-BEGIN
-	SET NOCOUNT ON;
+	IF ((SELECT COUNT(*) FROM sys.tables WHERE name like '#FileSize') = 1)
+			drop table #FileSize;
+		
 	IF (@Show_Me = 1)
 		BEGIN
+			
 			CREATE TABLE #FileSize
 			(dbName nvarchar(64),
 			FileNames nvarchar(max),
@@ -37,8 +37,7 @@ BEGIN
 				BEGIN
 					select 
 						cast(sum(size*8/1024/1024) as decimal(18,4)) as CurrentSizeGB,
-						Type_Descs,
-						Collected_Date
+						Type_Descs						
 					from #FileSize
 					where dbName not in ('master','model','msdb','tempdb')
 					group by Type_Descs
@@ -47,21 +46,19 @@ BEGIN
 				BEGIN
 					select 
 						cast(sum(size*8/1024/1024/1024) as decimal(18,4)) as CurrentSizeTB,
-						Type_Descs,
-						Collected_Date
+						Type_Descs						
 					from #FileSize
 					where dbName not in ('master','model','msdb','tempdb')
-					group by Type_Descs, Collected_Date
+					group by Type_Descs
 				END
 			ELSE IF (@measurement = 'KB')
 				BEGIN
 					select 
 						cast(sum(size*8) as decimal(18,4)) as CurrentSizeKB,
-						Type_Descs,
-						Collected_Date
+						Type_Descs					
 					from #FileSize
 					where dbName not in ('master','model','msdb','tempdb')
-					group by Type_Descs, Collected_Date
+					group by Type_Descs
 				END
 			ELSE
 				BEGIN
@@ -78,5 +75,7 @@ BEGIN
 		BEGIN
 		PRINT ''
 		END	
-	drop table  #FileSize
-END
+		if exists(select * from #FileSize)
+		begin
+		drop table #FileSize
+		end
